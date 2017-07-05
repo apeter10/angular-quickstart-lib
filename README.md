@@ -1,3 +1,5 @@
+> Add sass and npm scoped package support
+
 # Warning
 
 This quickstart is under active development and hasn't yet reached its final form.
