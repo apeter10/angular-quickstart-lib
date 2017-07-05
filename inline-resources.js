@@ -14,13 +14,18 @@ function promiseify(fn) {
   return function () {
     const args = [].slice.call(arguments, 0);
     return new Promise((resolve, reject) => {
-      fn.apply(this, args.concat([function (err, value) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(value);
-        }
-      }]));
+      fn.apply(
+        this,
+        args.concat([
+          function(err, value) {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(value);
+            }
+          }
+        ])
+      );
     });
   };
 }
@@ -38,18 +43,22 @@ function inlineResources(projectPath) {
   const files = glob.sync('**/*.ts', {cwd: projectPath});
 
   // For each file, inline the templates and styles under it and write the new file.
-  return Promise.all(files.map(filePath => {
-    const fullFilePath = path.join(projectPath, filePath);
-    return readFile(fullFilePath, 'utf-8')
-      .then(content => inlineResourcesFromString(content, url => {
-        // Resolve the template url.
-        return path.join(path.dirname(fullFilePath), url);
-      }))
-      .then(content => writeFile(fullFilePath, content))
-      .catch(err => {
-        console.error('An error occured: ', err);
-      });
-  }));
+  return Promise.all(
+    files.map(filePath => {
+      const fullFilePath = path.join(projectPath, filePath);
+      return readFile(fullFilePath, 'utf-8')
+        .then(content =>
+          inlineResourcesFromString(content, url => {
+            // Resolve the template url.
+            return path.join(path.dirname(fullFilePath), url);
+          })
+        )
+        .then(content => writeFile(fullFilePath, content))
+        .catch(err => {
+          console.error('An error occured: ', err);
+        });
+    })
+  );
 }
 
 /**
@@ -60,10 +69,7 @@ function inlineResources(projectPath) {
  */
 function inlineResourcesFromString(content, urlResolver) {
   // Curry through the inlining functions.
-  return [
-    inlineTemplate,
-    inlineStyle
-  ].reduce((content, fn) => fn(content, urlResolver), content);
+  return [inlineTemplate, inlineStyle].reduce((content, fn) => fn(content, urlResolver), content);
 }
 
 /**
@@ -74,16 +80,13 @@ function inlineResourcesFromString(content, urlResolver) {
  * @return {string} The content with all templates inlined.
  */
 function inlineTemplate(content, urlResolver) {
-  return content.replace(/templateUrl:\s*'([^']+?\.html)'/g, function (m, templateUrl) {
+  return content.replace(/templateUrl:\s*'([^']+?\.html)'/g, function(m, templateUrl) {
     const templateFile = urlResolver(templateUrl);
     const templateContent = fs.readFileSync(templateFile, 'utf-8');
-    const shortenedTemplate = templateContent
-      .replace(/([\n\r]\s*)+/gm, ' ')
-      .replace(/"/g, '\\"');
+    const shortenedTemplate = templateContent.replace(/([\n\r]\s*)+/gm, ' ').replace(/"/g, '\\"');
     return `template: "${shortenedTemplate}"`;
   });
 }
-
 
 /**
  * Inline the styles for a source file. Simply search for instances of `styleUrls: [...]` and
@@ -93,19 +96,21 @@ function inlineTemplate(content, urlResolver) {
  * @return {string} The content with all styles inlined.
  */
 function inlineStyle(content, urlResolver) {
-  return content.replace(/styleUrls:\s*(\[[\s\S]*?\])/gm, function (m, styleUrls) {
+  return content.replace(/styleUrls:\s*(\[[\s\S]*?\])/gm, function(m, styleUrls) {
     const urls = eval(styleUrls);
-    return 'styles: ['
-      + urls.map(styleUrl => {
-        const styleFile = urlResolver(styleUrl);
-        const styleContent = fs.readFileSync(styleFile, 'utf-8');
-        const shortenedStyle = styleContent
-          .replace(/([\n\r]\s*)+/gm, ' ')
-          .replace(/"/g, '\\"');
-        return `"${shortenedStyle}"`;
-      })
-        .join(',\n')
-      + ']';
+    return (
+      'styles: [' +
+      urls
+        .map(styleUrl => {
+          styleUrl = styleUrl.replace(/\.scss$/, '.css');
+          const styleFile = urlResolver(styleUrl);
+          const styleContent = fs.readFileSync(styleFile, 'utf-8');
+          const shortenedStyle = styleContent.replace(/([\n\r]\s*)+/gm, ' ').replace(/"/g, '\\"');
+          return `"${shortenedStyle}"`;
+        })
+        .join(',\n') +
+      ']'
+    );
   });
 }
 
