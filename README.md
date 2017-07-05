@@ -1,4 +1,4 @@
-> Add sass and npm scoped package support
+> Add sass support
 
 # Warning
 
